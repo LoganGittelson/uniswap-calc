@@ -1,0 +1,53 @@
+# Pool at date
+
+{
+  poolDayDatas(
+    where:
+      {pool_: {id: "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8"},
+      date: 1647388800}
+  ){
+    id
+    date
+    pool {
+          id
+    token0{
+      name
+    }
+    token1{
+      name
+    }
+    }
+  token0Price
+  token1Price
+  liquidity
+  tvlUSD
+  volumeUSD
+  feesUSD
+  }
+}
+
+# List of all pools at date and usd vals
+{
+  poolDayDatas(
+    where: {
+    date: 1646006400
+  }
+  ){
+  id
+    date
+    pool {
+      id
+      token0{
+          name
+      }
+      token1{
+          name
+      }
+    }
+    tvlUSD
+    feesUSD
+  }
+}
+# Be sure to go through all the pages!
+# Can also just strip poolDayData ID
+
