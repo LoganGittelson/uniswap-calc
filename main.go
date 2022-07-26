@@ -185,9 +185,6 @@ func calcRatios(cummlatives map[string]PoolVals, days int) {
 
 }
 
-// TODO: Fill out readme
-// TODO: Delete queries.txt
-
 // Future Improvements:
 // 	Make start and end date command-line args
 //	Cache query results locally for faster subsequent runs
