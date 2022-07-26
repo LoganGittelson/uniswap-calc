@@ -10,7 +10,7 @@ import (
 )
 
 // Set DEBUG to true for addtional printouts
-const DEBUG = false
+const DEBUG = true
 
 type PoolVals struct {
 	value      float64
@@ -37,6 +37,9 @@ func main() {
 
 	cummlatives := make(map[string]PoolVals)
 
+	if DEBUG {
+		log.Print("Establishing connection...")
+	}
 	// Create the client
 	client := graphql.NewClient("https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-subgraph", nil)
 
@@ -93,7 +96,8 @@ func main() {
 		}
 	}
 
-	calcRatios(cummlatives)
+	var days = (rangeEnd - rangeStart) / dayIncrement
+	calcRatios(cummlatives, days)
 
 }
 
@@ -144,7 +148,7 @@ func validatePoolVals(c PoolVals) bool {
 }
 
 // Takes the cummlative values and fees map and prints the best ratio found
-func calcRatios(cummlatives map[string]PoolVals) {
+func calcRatios(cummlatives map[string]PoolVals, days int) {
 	// Setup variables
 	bestEarnings := float64(0)
 	bestPool := ""
@@ -172,6 +176,13 @@ func calcRatios(cummlatives map[string]PoolVals) {
 
 	log.Printf("Address of pool: %v", bestPool)
 	log.Printf("Earnings: $%f", bestEarnings)
+
+	var principle = 1.0
+	var interest = bestEarnings - principle
+
+	var APR = (((interest / principle) / float64(days)) * 365) * 100
+	log.Printf("Calulcated APR of: %v%%", APR)
+
 }
 
 // TODO: Fill out readme
