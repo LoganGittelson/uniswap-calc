@@ -9,7 +9,8 @@ import (
 	"github.com/shurcooL/graphql"
 )
 
-const debug = false
+// Set DEBUG to true for addtional printouts
+const DEBUG = false
 
 type PoolVals struct {
 	value      float64
@@ -26,21 +27,25 @@ type PoolDayData struct {
 }
 
 func main() {
-
-	var pageSize int = 1000
-	var dayIncrement int = 86400
-	var rangeStart int = 1640995200
-	var rangeEnd int = 1646006400
+	// Page size to request from GraphQL API, higher means fewer queries but could timeout
+	const pageSize int = 1000
+	// Difference between epoch days
+	const dayIncrement int = 86400
+	// Start and end of range to query (in epoch format)
+	const rangeStart int = 1640995200
+	const rangeEnd int = 1646006400
 
 	cummlatives := make(map[string]PoolVals)
 
 	// Create the client
 	client := graphql.NewClient("https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-subgraph", nil)
 
+	// Create the query
 	var q struct {
 		PoolDayDatas []PoolDayData `graphql:"poolDayDatas(first: $pageSize, where: {date: $day, id_gt: $lastID})"`
 	}
 
+	// Set the variables
 	variables := map[string]interface{}{
 		"pageSize": graphql.Int(pageSize),
 		"day":      graphql.Int(0),
@@ -72,7 +77,7 @@ func main() {
 			}
 
 			// Print metdata about iteration
-			if debug {
+			if DEBUG {
 				log.Printf("Date: %d", r)
 				log.Printf("Records retrieved: %d", len(q.PoolDayDatas))
 			}
@@ -113,7 +118,7 @@ func processPoolDay(p PoolDayData) (cID string, c PoolVals) {
 	c.earned = c.fee / c.value
 
 	// Print select data
-	if strings.HasPrefix(string(p.Id), lastWinner) && debug {
+	if strings.HasPrefix(string(p.Id), lastWinner) && DEBUG {
 		log.Printf(
 			`
 					ID: %v
@@ -125,11 +130,17 @@ func processPoolDay(p PoolDayData) (cID string, c PoolVals) {
 		)
 	}
 
-	if c.value < 1 {
-		return cID, PoolVals{0, 0, 0, 0}
+	if validatePoolVals(c) {
+		return
 	}
 
-	return
+	// If parsed values are not considered valid, return all 0's
+	return cID, PoolVals{0, 0, 0, 0}
+}
+
+// Given a set of PoolVals, return true if valid
+func validatePoolVals(c PoolVals) bool {
+	return c.value >= 1
 }
 
 // Takes the cummlative values and fees map and prints the best ratio found
@@ -144,7 +155,7 @@ func calcRatios(cummlatives map[string]PoolVals) {
 		if t.value == 0 {
 			cRatio = 0
 		}
-		if debug {
+		if DEBUG {
 			log.Printf("%v earned a total of %v with an average ratio of %v over %v days", i, t.earned, cRatio, t.daysActive)
 		}
 
@@ -155,7 +166,7 @@ func calcRatios(cummlatives map[string]PoolVals) {
 	}
 
 	// Print best pool found
-	if debug {
+	if DEBUG {
 		log.Printf("%v had a cummlative tlv of %v and a cummlative fee of %v over %v days", bestPool, cummlatives[bestPool].value, cummlatives[bestPool].fee, cummlatives[bestPool].daysActive)
 	}
 
