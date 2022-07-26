@@ -9,9 +9,13 @@ import (
 	"github.com/shurcooL/graphql"
 )
 
-type ValueAndFee struct {
-	value float64
-	fee   float64
+const debug = false
+
+type PoolVals struct {
+	value      float64
+	fee        float64
+	earned     float64
+	daysActive int
 }
 
 type PoolDayData struct {
@@ -28,7 +32,7 @@ func main() {
 	var rangeStart int = 1640995200
 	var rangeEnd int = 1646006400
 
-	cummlatives := make(map[string]ValueAndFee)
+	cummlatives := make(map[string]PoolVals)
 
 	// Create the client
 	client := graphql.NewClient("https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-subgraph", nil)
@@ -57,19 +61,21 @@ func main() {
 
 			// Parse query results
 			for _, p := range q.PoolDayDatas {
-				cID, cValue, cFee := processPoolDay(p)
+				cID, c := processPoolDay(p)
 
 				// Update cummulative values
-				vf, found := cummlatives[cID]
+				pv, found := cummlatives[cID]
 				if !found {
-					vf = ValueAndFee{0, 0}
+					pv = PoolVals{0, 0, 0, 0}
 				}
-				cummlatives[cID] = ValueAndFee{value: vf.value + cValue, fee: vf.fee + cFee}
+				cummlatives[cID] = PoolVals{value: pv.value + c.value, fee: pv.fee + c.fee, earned: pv.earned + c.earned, daysActive: pv.daysActive + 1}
 			}
 
 			// Print metdata about iteration
-			log.Printf("Date: %d", r)
-			log.Printf("Records retrieved: %d", len(q.PoolDayDatas))
+			if debug {
+				log.Printf("Date: %d", r)
+				log.Printf("Records retrieved: %d", len(q.PoolDayDatas))
+			}
 
 			// If we have fetched an incomplete page, it must be the last one
 			if len(q.PoolDayDatas) < pageSize {
@@ -87,42 +93,49 @@ func main() {
 }
 
 // Takes one record of PoolDayData and returns the parsed ID, TLV, and Fees
-func processPoolDay(p PoolDayData) (cID string, cValue float64, cFee float64) {
-	var lastWinner string = "0xe1263d62e3961467ca88c084f0d0d14feb0846d6"
+func processPoolDay(p PoolDayData) (cID string, c PoolVals) {
+	var lastWinner string = "0xd3ca35355106cb8bc5fd7c534275509673319d83"
 	var err error
 
+	// Parse the current values
+	cID = strings.Split(string(p.Id), "-")[0]
+
+	c.value, err = strconv.ParseFloat(string(p.TvlUSD), 64)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	c.fee, err = strconv.ParseFloat(string(p.FeesUSD), 64)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	c.earned = c.fee / c.value
+
 	// Print select data
-	if (p.TvlUSD == "0" && p.FeesUSD != "0") || strings.HasPrefix(string(p.Id), lastWinner) {
+	if strings.HasPrefix(string(p.Id), lastWinner) && debug {
 		log.Printf(
 			`
-			ID: %v
-			Date: %v
-			TVL: %v
-			Fees: %v
-		`, p.Id, p.Date, p.TvlUSD, p.FeesUSD,
+					ID: %v
+					Date: %v
+					TVL: %v
+					Fees: %v
+					Earned: %v
+				`, cID, p.Date, c.value, c.fee, c.earned,
 		)
 	}
 
-	// Parse the current values
-	cValue, err = strconv.ParseFloat(string(p.TvlUSD), 64)
-	if err != nil {
-		log.Fatal(err)
+	if c.value < 1 {
+		return cID, PoolVals{0, 0, 0, 0}
 	}
-
-	cFee, err = strconv.ParseFloat(string(p.FeesUSD), 64)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	cID = strings.Split(string(p.Id), "-")[0]
 
 	return
 }
 
 // Takes the cummlative values and fees map and prints the best ratio found
-func calcRatios(cummlatives map[string]ValueAndFee) {
+func calcRatios(cummlatives map[string]PoolVals) {
 	// Setup variables
-	bestRatio := float64(0)
+	bestEarnings := float64(0)
 	bestPool := ""
 
 	// Iterate through cummlative values dictionary
@@ -131,19 +144,28 @@ func calcRatios(cummlatives map[string]ValueAndFee) {
 		if t.value == 0 {
 			cRatio = 0
 		}
-		log.Printf("%v: %v / %v = %v", i, t.fee, t.value, cRatio)
-		// Constraining best ratio to only pools that have a cummulative TLV greater than what we're considering investing
-		if cRatio > bestRatio && t.value > 1 {
-			bestRatio = cRatio
+		if debug {
+			log.Printf("%v earned a total of %v with an average ratio of %v over %v days", i, t.earned, cRatio, t.daysActive)
+		}
+
+		if t.earned > bestEarnings {
+			bestEarnings = t.earned
 			bestPool = i
 		}
 	}
 
 	// Print best pool found
+	if debug {
+		log.Printf("%v had a cummlative tlv of %v and a cummlative fee of %v over %v days", bestPool, cummlatives[bestPool].value, cummlatives[bestPool].fee, cummlatives[bestPool].daysActive)
+	}
+
 	log.Printf("Address of pool: %v", bestPool)
-	log.Printf("Earnings: $%f", bestRatio)
+	log.Printf("Earnings: $%f", bestEarnings)
 }
 
-// TODO: Cleanup print statements
-// TODO: Figure out what requirements to put on valid returns
-// TODO: Integrate days active scaling factor
+// TODO: Fill out readme
+// TODO: Delete queries.txt
+
+// Future Improvements:
+// 	Make start and end date command-line args
+//	Cache query results locally for faster subsequent runs
