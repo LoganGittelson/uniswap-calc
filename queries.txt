@@ -51,3 +51,30 @@
 # Be sure to go through all the pages!
 # Can also just strip poolDayData ID
 
+
+# Info full query
+query ($day: Int!) {
+			poolDayDatas (
+				where: {
+					date: $day
+				}
+			) {
+				id
+				date
+				pool {
+					id
+					token0{
+						id
+						name
+						decimals
+					}
+					token1{
+						id
+						name
+						decimals
+					}
+				}
+				tvlUSD
+				feesUSD
+			}
+		}
