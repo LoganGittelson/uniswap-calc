@@ -4,46 +4,47 @@ import (
 	"context"
 	"log"
 
-	"github.com/machinebox/graphql"
+	"github.com/shurcooL/graphql"
 )
 
 func main() {
 
-	// create a client (safe to share across requests)
-	client := graphql.NewClient("https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-subgraph")
+	// Create the client
+	client := graphql.NewClient("https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-subgraph", nil)
 
-	// make a request
-	req := graphql.NewRequest(`
-		query ($day: Int!) {
-			poolDayDatas (
-				where: {
-					date: $day
-				}
-			) {
-				id
-				date
-				tvlUSD
-				feesUSD
-			}
-		}
-	`)
+	var q struct {
+		PoolDayDatas []struct {
+			Id      graphql.String
+			Date    graphql.Int
+			TvlUSD  graphql.String `graphql:"tvlUSD"`
+			FeesUSD graphql.String `graphql:"feesUSD"`
+		} `graphql:"poolDayDatas(first: 100, where: {date: $day, id_gt: $lastID})"`
+	}
 
-	// set any variables
-	req.Var("day", 1647388800)
+	variables := map[string]interface{}{
+		"day":    graphql.Int(1647388800),
+		"lastID": "",
+	}
 
-	// set header fields
-	req.Header.Set("Cache-Control", "no-cache")
-
-	// define a Context for the request
-	ctx := context.Background()
-
-	// run it and capture the response
-	var respData map[string]interface{}
-	err := client.Run(ctx, req, &respData)
+	err := client.Query(context.Background(), &q, variables)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Print(respData)
+	for _, p := range q.PoolDayDatas {
+		log.Printf(
+			`
+			ID: %v
+			Date: %v
+			TVL: %v
+			Fees: %v
+			`, p.Id, p.Date, p.TvlUSD, p.FeesUSD,
+		)
+	}
+
+	log.Printf("Records retrieved: %d", len(q.PoolDayDatas))
+
+	// TODO: Add pagination
+	// TODO: Store to cummlative sums
 
 }
