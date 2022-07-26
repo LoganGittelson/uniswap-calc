@@ -10,7 +10,7 @@ import (
 )
 
 // Set DEBUG to true for addtional printouts
-const DEBUG = true
+const DEBUG = false
 
 type PoolVals struct {
 	value      float64
@@ -177,8 +177,8 @@ func calcRatios(cummlatives map[string]PoolVals, days int) {
 	log.Printf("Address of pool: %v", bestPool)
 	log.Printf("Earnings: $%f", bestEarnings)
 
+	var interest = bestEarnings
 	var principle = 1.0
-	var interest = bestEarnings - principle
 
 	var APR = (((interest / principle) / float64(days)) * 365) * 100
 	log.Printf("Calulcated APR of: %v%%", APR)
