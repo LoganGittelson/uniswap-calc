@@ -1,13 +1,14 @@
 package unicalc
 
 import (
+	"context"
 	"log"
 	"strconv"
 	"strings"
 )
 
 // Set DEBUG to true for addtional printouts
-const DEBUG = true
+const DEBUG = false
 
 func RunCalcs() error { // Page size to request from GraphQL API, higher means fewer queries but could timeout
 	const pageSize int = 1000
@@ -41,7 +42,7 @@ func RunCalcs() error { // Page size to request from GraphQL API, higher means f
 		// Page through data for a particular date
 		for {
 			// Run query
-			err := uclient.Query(q)
+			err := uclient.graph.Query(context.Background(), &q, uclient.varsToStringMap())
 			if err != nil {
 				return err
 			}
